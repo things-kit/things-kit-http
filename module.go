@@ -8,6 +8,8 @@ package http
 
 import (
 	"context"
+	"io"
+	"net/http"
 )
 
 // Server represents an HTTP server that can be started and stopped.
@@ -28,13 +30,82 @@ type Server interface {
 	Addr() string
 }
 
+// Context represents an HTTP request/response context abstraction.
+// This interface provides a framework-agnostic way to interact with HTTP requests and responses.
+// Implementations should wrap framework-specific context types (e.g., gin.Context, echo.Context).
+type Context interface {
+	// Request returns the underlying *http.Request
+	Request() *http.Request
+
+	// Context returns the request's context for cancellation and deadlines
+	Context() context.Context
+
+	// Param retrieves a URL path parameter by name
+	Param(name string) string
+
+	// Query retrieves a URL query parameter by name
+	Query(name string) string
+
+	// QueryDefault retrieves a URL query parameter with a default value
+	QueryDefault(name, defaultValue string) string
+
+	// GetHeader retrieves a request header by name
+	GetHeader(name string) string
+
+	// SetHeader sets a response header
+	SetHeader(name, value string)
+
+	// BindJSON binds the request body as JSON to the provided struct
+	BindJSON(obj interface{}) error
+
+	// Bind binds the request body to the provided struct (supports multiple formats)
+	Bind(obj interface{}) error
+
+	// JSON sends a JSON response with the given status code
+	JSON(code int, obj interface{}) error
+
+	// String sends a string response with the given status code
+	String(code int, s string) error
+
+	// Status sets the HTTP response status code
+	Status(code int)
+
+	// Writer returns the response writer
+	Writer() io.Writer
+}
+
+// HandlerFunc defines the function signature for HTTP handlers using the abstract Context.
+// This is similar to echo.HandlerFunc but framework-agnostic.
+type HandlerFunc func(Context) error
+
+// Router represents an abstract HTTP router for registering routes.
+// Implementations should wrap framework-specific routers (e.g., gin.Engine, echo.Echo).
+type Router interface {
+	// GET registers a GET route
+	GET(path string, handler HandlerFunc)
+
+	// POST registers a POST route
+	POST(path string, handler HandlerFunc)
+
+	// PUT registers a PUT route
+	PUT(path string, handler HandlerFunc)
+
+	// DELETE registers a DELETE route
+	DELETE(path string, handler HandlerFunc)
+
+	// PATCH registers a PATCH route
+	PATCH(path string, handler HandlerFunc)
+
+	// Group creates a route group with the given prefix
+	Group(prefix string) Router
+}
+
 // Handler represents a component that can register HTTP routes.
-// The router parameter type depends on the HTTP implementation being used.
-// For example, *gin.Engine for Gin, chi.Router for Chi, etc.
+// Handlers should use the abstract Router interface to register routes,
+// making them framework-agnostic.
 type Handler interface {
 	// RegisterRoutes registers this handler's routes with the HTTP router.
-	// The router parameter should be cast to the appropriate type by the implementation.
-	RegisterRoutes(router any)
+	RegisterRoutes(router Router)
 }
 
 // Config holds common HTTP server configuration.
